@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Imposter Game</title>
+<style>
+  body {
+    margin: 0;
+    height: 100vh;
+    background: linear-gradient(to top, #fbb1c6, #80c1e3);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    text-align: center;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    color: white;
+  }
+
+  .page { display: none; padding: 20px; }
+  .active { display: block; }
+
+  h2 { font-size: 2em; margin-bottom: 10px; }
+
+  button {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 10px 25px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 10px;
+    font-size: 1.1em;
+  }
+
+  button:hover { background: rgba(255, 255, 255, 0.35); }
+
+  input[type=number] {
+    width: 60px;
+    text-align: center;
+    border-radius: 6px;
+    border: none;
+    padding: 5px;
+  }
+
+  .categories { display: inline-block; text-align: left; margin-top: 10px; margin-bottom: 20px; }
+  .categories label { display: block; margin: 5px 0; }
+
+  .timer { font-size: 6em; margin-top: 120px; font-weight: bold; }
+  #endGameBtn { margin-top: 80px; font-size: 1.3em; }
+</style>
+</head>
+<body>
+
+<!-- PHASE 1: SETTINGS -->
+<div id="settingsPage" class="page active">
+  <h2>IMPOSTER AMONG US</h2>
+
+  <p>Players:
+    <input type="number" id="totalPlayers" value="4" min="2">
+  </p>
+
+  <p>Imposters:
+    <input type="number" id="imposters" value="1" min="1">
+  </p>
+
+  <p>Timer:
+    <input type="number" id="timerMinutes" value="2" min="1">
+  </p>
+
+  <div class="categories">
+    <h3>Categories</h3>
+    <label><input type="checkbox" class="category" value="videoGames" checked> Video Games</label>
+    <label><input type="checkbox" class="category" value="movies" checked> Movies</label>
+    <label><input type="checkbox" class="category" value="celebrities" checked> Celebrities</label>
+    <label><input type="checkbox" class="category" value="countries" checked> Countries</label>
+    <label><input type="checkbox" class="category" value="items" checked> Items</label>
+    <label><input type="checkbox" class="category" value="locations" checked> Locations</label>
+    <label><input type="checkbox" class="category" value="things" checked> Things</label>
+  </div>
+
+  <div style="margin-top: 40px;">
+    <button id="startGameBtn">Start Game</button>
+  </div>
+</div>
+
+<!-- PHASE 2: REVEAL -->
+<div id="revealPage" class="page">
+  <h2 id="currentPlayerNum">Player 1</h2>
+  <button id="revealWordBtn">Reveal the word</button>
+</div>
+
+<!-- PHASE 2B: SHOW ROLE -->
+<div id="showRolePage" class="page">
+  <h2 id="roleMessage"></h2>
+  <button id="nextPlayerBtn">Next Player</button>
+</div>
+
+<!-- PHASE 3: TIMER -->
+<div id="timerPage" class="page">
+  <div class="timer" id="countdown">00:00</div>
+  <button id="endGameBtn">End Game</button>
+</div>
+
+<!-- END PAGE -->
+<div id="endPage" class="page">
+  <h2>⏰ Time’s Up!</h2>
+  <button id="backToStartBtn">Back to Start</button>
+</div>
+
+<script>
+const pages = {
+  settings: document.getElementById('settingsPage'),
+  reveal: document.getElementById('revealPage'),
+  showRole: document.getElementById('showRolePage'),
+  timer: document.getElementById('timerPage'),
+  end: document.getElementById('endPage')
+};
+
+const totalPlayersInput = document.getElementById('totalPlayers');
+const impostersInput = document.getElementById('imposters');
+const timerMinutesInput = document.getElementById('timerMinutes');
+const startGameBtn = document.getElementById('startGameBtn');
+const revealWordBtn = document.getElementById('revealWordBtn');
+const nextPlayerBtn = document.getElementById('nextPlayerBtn');
+const backToStartBtn = document.getElementById('backToStartBtn');
+const endGameBtn = document.getElementById('endGameBtn');
+const currentPlayerNum = document.getElementById('currentPlayerNum');
+const roleMessage = document.getElementById('roleMessage');
+const countdown = document.getElementById('countdown');
+
+let totalPlayers, imposters, timerSeconds;
+let selectedCategories = [];
+let chosenWord = "";
+let roles = [];
+let currentPlayer = 1;
+let timerInterval;
+
+/* =========================
+   WORDS DATABASE
+========================= */
+const words = {
+  videoGames: [
+    "Minecraft","Fortnite","Overwatch","Valorant","League of Legends","Among Us","PUBG","Apex Legends","Call of Duty","GTA",
+    "CS:GO","FIFA 23","Battlefield","Elden Ring","Rocket League","Dota 2","Cyberpunk 2077","Warzone","Skyrim","The Witcher 3",
+    "Fall Guys","Roblox","Dead by Daylight","Assassin's Creed","Tetris","Street Fighter","Tekken","The Sims 4","Overcooked","Payday 2",
+    "Red Dead Redemption 2","Horizon Zero Dawn","God of War","Monster Hunter","Dark Souls 3","Destiny 2","Star Wars Jedi","Madden NFL","Halo","Control",
+    "Far Cry 6","Resident Evil 2","Resident Evil 3","Resident Evil 4","Diablo 3","Diablo 4","Sekiro","Bloodborne","Genshin Impact","Forza Horizon 5",
+    "Borderlands 3","Splinter Cell","Hitman 3","Back 4 Blood","Dead Space","Mass Effect Legendary","Uncharted","Ghost Recon","Valorant Mobile","League of Legends Mobile",
+    "Paladins","Team Fortress 2","Warframe","SimCity","Anno 1800","Farming Simulator","Cities Skylines","Battlefront 2","Minecraft Dungeons","Hearthstone"
+  ],
+  movies: [
+    "Inception","Titanic","Avatar","Gladiator","Interstellar","Joker","The Dark Knight","The Godfather","Frozen","Harry Potter",
+    "The Avengers","Avengers: Endgame","Iron Man","Spider-Man: No Way Home","Black Panther","The Matrix","Star Wars","Jurassic Park","Toy Story","Finding Nemo",
+    "Shrek","The Lion King","The Incredibles","Up","Coco","Soul","Parasite","The Prestige","Pulp Fiction","Fight Club",
+    "Forrest Gump","The Shawshank Redemption","The Silence of the Lambs","Gladiator","Lord of the Rings","Hobbit","Avatar 2","Doctor Strange","Thor","Captain America",
+    "Deadpool","Wolverine","Guardians of the Galaxy","Black Widow","Wonder Woman","Batman Begins","Suicide Squad","Aquaman","Jumanji","Spider-Man",
+    "The Batman","Encanto","Moana","Ratatouille","Inside Out","Zootopia","Aladdin","Beauty and the Beast","Mulan","Frozen 2",
+    "King Kong","Godzilla","Shang-Chi","Eternals","Captain Marvel","Ant-Man","Hobbs & Shaw","Minions","Despicable Me","Kung Fu Panda"
+  ],
+  celebrities: [
+    "Taylor Swift","Elon Musk","Beyoncé","Cristiano Ronaldo","Messi","Rihanna","Tom Cruise","Leonardo DiCaprio","Brad Pitt","Angelina Jolie",
+    "Dwayne Johnson","Chris Hemsworth","Keanu Reeves","Emma Watson","Jennifer Lawrence","Lady Gaga","Justin Bieber","Johnny Depp","Will Smith","Zendaya",
+    "Ariana Grande","Shakira","Billie Eilish","The Weeknd","Ed Sheeran","Kanye West","Robert Downey Jr.","Chris Evans","Gal Gadot","Anne Hathaway",
+    "Tom Holland","Chris Pratt","Scarlett Johansson","David Beckham","Neymar","Kylian Mbappé","Sergio Ramos","Lionel Messi","Megan Fox","Margot Robbie",
+    "Hugh Jackman","Matt Damon","Matt LeBlanc","Ryan Reynolds","Jake Gyllenhaal","Zendaya","Miley Cyrus","Selena Gomez","Post Malone","Harry Styles",
+    "Benedict Cumberbatch","Chris Pine","Samuel L. Jackson","Vin Diesel","Demi Lovato","Bruno Mars","Shawn Mendes","Camila Cabello","Zayn Malik","Cardi B",
+    "Drake","Adele","Jennifer Lopez","Kendall Jenner","Gigi Hadid","Bella Hadid","Kobe Bryant","LeBron James","Serena Williams","Roger Federer"
+  ],
+  countries: [
+    "ایران","فرانسه","آلمان","ژاپن","چین","کانادا","انگلستان","برزیل","مکزیک","هند",
+    "عراق","افغانستان","پاکستان","ترکیه","روسیه","ایتالیا","اسپانیا","مصر","سوئد","نروژ",
+    "کره جنوبی","کره شمالی","عربستان","قطر","امارات","هلند","دانمارک","بلژیک","آرژانتین","لهستان",
+    "سوئیس","فنلاند","نروژ","یونان","پرتغال","کلمبیا","شیلی","ویتنام","تایلند","مالزی",
+    "اندونزی","فیلیپین","نیوزیلند","استرالیا","کنیا","نیجریه","مراکش","سنگاپور","عربستان سعودی","عمان",
+    "لبنان","سوریه","میانمار","مکزیک","آذربایجان","گرجستان","عمان","بحرین","کوبا","پرو",
+    "اروگوئه","ونزوئلا","بولیوی","پاناما","جامائیکا","هایتی","کاستاریکا","السالوادور","نیکاراگوئه","گواتمالا"
+  ],
+  items: [
+    "کتاب","قلم","صندلی","میز","لیوان","کاغذ","کفش","کلاه","کیف","ساعت",
+    "تلفن","کامپیوتر","خودکار","چراغ","تلویزیون","دوربین","بطری","چتر","قاشق","چاقو",
+    "بالش","پتو","عینک","سکه","پول","مداد","پاک‌کن","کاغذ","تبلت","بطری آب",
+    "یخچال","ماشین لباسشویی","موبایل","کفش ورزشی","چمدان","میز تحریر","تخته وایت‌برد","سطل زباله","کارت بانکی","چراغ مطالعه",
+    "چراغ قوه","پاوربانک","کیبورد","ماوس","هدست","هدفون","چراغ خواب","سینی","کاسه","لیوان آب",
+    "دفترچه یادداشت","کاغذ دیواری","نقشه","کتاب داستان","دفتر مشق","قلم‌مو","آباژور","رادیو","تلویزیون کوچک","تخته وایت‌برد کوچک",
+    "جاکفشی","کپسول آتش‌نشانی","تخته گچی","پنکه","چای‌ساز","قهوه‌ساز","یخدان","جاروبرقی","میز ناهارخوری","صندلی میز ناهارخوری",
+    "ساعت دیواری","تخته کفش","صندلی اداری","کمد لباس","کیف پول","عینک آفتابی","کلاه ایمنی","کمربند","چتر مسافرتی","چراغ قوه دستی"
+  ],
+  locations: [
+    "تهران","مشهد","اصفهان","شیراز","تبریز","اهواز","کیش","قشم","کرج","رشت",
+    "سیدنی","نیویورک","لندن","پاریس","توکیو","پکن","دبی","امارات","ریو","مادرید",
+    "رم","برلین","ورشو","واشنگتن","مسکو","اونتاریو","تورنتو","ونکوور","مونترال","لوس‌آنجلس",
+    "سانفرانسیسکو","میلان","موناکو","کپنهاگ","استکهلم","اوسلو","هلسینکی","مکزیکو سیتی","بوئنوس آیرس","سائو پائولو",
+    "لوزان","ژنو","بازل","لیسبون","بارسلونا","آتن","بیروت","دوحه","دووسلدورف","کلن",
+    "فلورانس","نیس","ونیز","ناپل","توورین","برن","زوریخ","لیون","مارسی","نانت",
+    "تاج محل","برج ایفل","برج خلیفه","میدان نقش جهان","کاخ گلستان","برج لندن","مجسمه آزادی","تاج محل هند","اپرا هاوس سیدنی","آکروپولیس"
+  ],
+  things: [
+    "خوابیدن","ورزش کردن","مهمانی","آشپزی","خوردن","خواندن","نوشتن","تماشای فیلم","بازی کردن","نقاشی کردن",
+    "سفر کردن","کار کردن","صحبت کردن","موسیقی گوش دادن","رقصیدن","خندیدن","گریه کردن","خرید کردن","مسافرت","خوردن صبحانه",
+    "خواب بعد از ظهر","دوچرخه سواری","رانندگی","مدیتیشن","تمیز کردن","شستشو","شنا","پیک نیک","پیاده روی","دویدن",
+    "کتاب خواندن","نوشتن شعر","نقاشی دیواری","ساخت کاردستی","تماشای تلویزیون","کلاس رفتن","دوستیابی","صحبت تلفنی","خرید اینترنتی","کافه رفتن",
+    "گشت و گذار","ورزش صبحگاهی","یوگا","بازی تخته‌ای","تست هوش","آشپزی حرفه‌ای","سفر خارجی","ملاقات دوستان","یادگیری زبان","دیدن نمایش",
+    "خواب شب","بازی ویدئویی","کیک پختن","عکاسی","نوشتن داستان","تکالیف مدرسه","تمرین فوتبال","تمرین بسکتبال","تمرین والیبال","تست علمی",
+    "خواندن اخبار","تماشای مسابقه فوتبال","بازدید موزه","پیاده‌روی شب","نواختن ساز","تمرین پیانو","تماشای کنسرت","نوشتن نامه","کلیسا رفتن","بازدید پارک",
+    "شنا در استخر","تمرین رزمی","پیاده‌روی کوهستان","بازدید کتابخانه","تماشای تئاتر","دویدن صبحگاهی","دوچرخه سواری شهری","تمرین دو","تماشای مسابقه بسکتبال","تماشای مسابقه والیبال"
+  ]
+};
+
+/* =========================
+   HELPERS
+========================= */
+function showPage(page) {
+  Object.values(pages).forEach(p => p.classList.remove('active'));
+  page.classList.add('active');
+}
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/* =========================
+   PHASE 1: START GAME
+========================= */
+startGameBtn.addEventListener('click', () => {
+  totalPlayers = parseInt(totalPlayersInput.value);
+  imposters = parseInt(impostersInput.value);
+  timerSeconds = parseInt(timerMinutesInput.value) * 60;
+
+  if (imposters >= totalPlayers) {
+    alert("Imposters must be fewer than total players!");
+    return;
+  }
+
+  // gather selected categories
+  selectedCategories = [...document.querySelectorAll('.category:checked')].map(c => c.value);
+  if (selectedCategories.length === 0) {
+    alert("Select at least one category!");
+    return;
+  }
+
+  // choose word
+  const selectedWordLists = selectedCategories.flatMap(cat => words[cat]);
+  chosenWord = pickRandom(selectedWordLists);
+
+  // assign roles
+  roles = Array(totalPlayers).fill("word");
+  for (let i = 0; i < imposters; i++) {
+    let idx;
+    do { idx = Math.floor(Math.random() * totalPlayers); } while (roles[idx] === "imposter");
+    roles[idx] = "imposter";
+  }
+
+  currentPlayer = 1;
+  currentPlayerNum.textContent = "Player " + currentPlayer;
+  showPage(pages.reveal);
+});
+
+/* =========================
+   PHASE 2: REVEAL ROLES
+========================= */
+revealWordBtn.addEventListener('click', () => {
+  const role = roles[currentPlayer - 1];
+  if (role === "imposter") {
+    roleMessage.textContent = "YOU ARE THE IMPOSTER!";
+  } else {
+    roleMessage.textContent = chosenWord;
+  }
+  showPage(pages.showRole);
+});
+
+nextPlayerBtn.addEventListener('click', () => {
+  if (currentPlayer < totalPlayers) {
+    currentPlayer++;
+    currentPlayerNum.textContent = "Player " + currentPlayer;
+    showPage(pages.reveal);
+  } else {
+    startTimer();
+    showPage(pages.timer);
+  }
+});
+
+/* =========================
+   PHASE 3: TIMER
+========================= */
+function startTimer() {
+  clearInterval(timerInterval);
+  function update() {
+    let m = Math.floor(timerSeconds / 60);
+    let s = timerSeconds % 60;
+    countdown.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (timerSeconds <= 0) {
+      clearInterval(timerInterval);
+      showPage(pages.end);
+    }
+    timerSeconds--;
+  }
+  update();
+  timerInterval = setInterval(update, 1000);
+}
+
+/* =========================
+   END GAME EARLY
+========================= */
+endGameBtn.addEventListener('click', () => {
+  clearInterval(timerInterval);
+  showPage(pages.settings);
+});
+
+/* =========================
+   BACK TO START
+========================= */
+backToStartBtn.addEventListener('click', () => showPage(pages.settings));
+</script>
+</body>
+</html>
