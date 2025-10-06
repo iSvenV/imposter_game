@@ -5,17 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Imposter Game</title>
 <style>
-  body {
-    margin: 0;
-    height: 100vh;
-    background: linear-gradient(to top, #fbb1c6, #80c1e3);
-    background-repeat: no-repeat;
-    background-attachment: fixed;
-    text-align: center;
-    font-family: Arial, sans-serif;
-    padding: 20px;
-    color: white;
-  }
+body {
+  margin: 0;
+  height: 100vh;
+  background: linear-gradient(to top, #fbb1c6, #80c1e3);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  color: white;
+  overflow: hidden;  /* Prevent scrolling */
+}
+
+html {
+  overflow: hidden;  /* Prevent scrolling */
+  height: 100%;
+}
+
 
   .page { display: none; padding: 20px; }
   .active { display: block; }
@@ -314,3 +321,4 @@ backToStartBtn.addEventListener('click', () => showPage(pages.settings));
 </script>
 </body>
 </html>
+
